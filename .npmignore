@@ -1,0 +1,6 @@
+/.rollup.cache/
+/.vscode/
+/node_modules/
+/rollup.config.ts
+/tsconfig.json
+/tsconfig.tsbuildinfo

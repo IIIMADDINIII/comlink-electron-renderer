@@ -2,6 +2,12 @@
   "name": "comlink-electron-renderer",
   "version": "0.0.1",
   "description": "A wrapper around Comlink to make it work on the render process on electron",
+  "keywords": [
+    "comlink",
+    "electron",
+    "messagePort",
+    "ipc"
+  ],
   "exports": {
     "import": {
       "types": "./dist/index.d.ts",
@@ -20,7 +26,7 @@
     "type": "git",
     "url": "git+https://github.com/IIIMADDINIII/comlink-electron-renderer.git"
   },
-  "author": "IIIMADDINIII",
+  "author": "IIIMADDINIII <martin@elend.name>",
   "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/IIIMADDINIII/comlink-electron-renderer/issues"
