@@ -6,7 +6,7 @@ specifiers:
   '@rollup/plugin-terser': ^0.1.0
   '@rollup/plugin-typescript': ^9.0.2
   rollup: ^3.2.3
-  rollup-plugin-sourcemaps: file:../rollup-plugin-source-maps
+  rollup-plugin-include-sourcemaps: ^0.7.0
   tslib: ^2.4.0
   typescript: ^4.8.4
 
@@ -16,7 +16,7 @@ devDependencies:
   '@rollup/plugin-terser': 0.1.0_rollup@3.2.5
   '@rollup/plugin-typescript': 9.0.2_skqhbvp355vci76ty3pdffvjrq
   rollup: 3.2.5
-  rollup-plugin-sourcemaps: file:../rollup-plugin-source-maps_rollup@3.2.5
+  rollup-plugin-include-sourcemaps: 0.7.0_rollup@3.2.5
   tslib: 2.4.1
   typescript: 4.8.4
 
@@ -310,6 +310,22 @@ packages:
       supports-preserve-symlinks-flag: 1.0.0
     dev: true
 
+  /rollup-plugin-include-sourcemaps/0.7.0_rollup@3.2.5:
+    resolution: {integrity: sha512-zAlN2IkFSaptlHhuWVROZ5xrviEULRSInN9AzETsBD++Ab5aMKAtXhDH2aRHbE2cRW6cVT9FFrAQHwZXxqDCIQ==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      '@types/node': '>=10.0.0'
+      rollup: '>=0.31.2'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+    dependencies:
+      '@rollup/pluginutils': 5.0.2_rollup@3.2.5
+      atob: 2.1.2
+      decode-uri-component: 0.2.0
+      rollup: 3.2.5
+    dev: true
+
   /rollup/3.2.5:
     resolution: {integrity: sha512-/Ha7HhVVofduy+RKWOQJrxe4Qb3xyZo+chcpYiD8SoQa4AG7llhupUtyfKSSrdBM2mWJjhM8wZwmbY23NmlIYw==}
     engines: {node: '>=14.18.0', npm: '>=8.0.0'}
@@ -362,23 +378,4 @@ packages:
 
   /wrappy/1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
-    dev: true
-
-  file:../rollup-plugin-source-maps_rollup@3.2.5:
-    resolution: {directory: ../rollup-plugin-source-maps, type: directory}
-    id: file:../rollup-plugin-source-maps
-    name: rollup-plugin-sourcemaps
-    version: 0.7.0
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      '@types/node': '>=10.0.0'
-      rollup: '>=0.31.2'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-    dependencies:
-      '@rollup/pluginutils': 5.0.2_rollup@3.2.5
-      atob: 2.1.2
-      decode-uri-component: 0.2.0
-      rollup: 3.2.5
     dev: true

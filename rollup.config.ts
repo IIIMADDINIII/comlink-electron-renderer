@@ -1,5 +1,5 @@
 import { defineConfig } from "rollup";
-import sourceMaps from 'rollup-plugin-sourcemaps';
+import sourceMaps from 'rollup-plugin-include-sourcemaps';
 import commonjs from '@rollup/plugin-commonjs';
 import typescript from "@rollup/plugin-typescript";
 import { nodeResolve } from '@rollup/plugin-node-resolve';
