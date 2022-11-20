@@ -1,6 +1,6 @@
 {
   "name": "comlink-electron-renderer",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A wrapper around Comlink to make it work on the render process on electron",
   "keywords": [
     "comlink",
