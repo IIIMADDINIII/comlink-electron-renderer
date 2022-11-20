@@ -1,4 +1,5 @@
 import {
+  Argument,
   Message,
   MessageType,
   WireValue,
@@ -189,7 +190,7 @@ export interface TransferHandler<T, S> {
    * other thread with this transfer handler (known through the name it was
    * registered under).
    */
-  deserialize(value: S): T;
+  deserialize(value: S, ports: MessagePort[]): T;
 }
 
 /**
@@ -273,7 +274,11 @@ export function expose(obj: any, ep: MessagePort = self as any) {
       path: [] as string[],
       ...(ev.data as Message),
     };
-    const argumentList = (ev.data.argumentList || []).map(fromWireValue);
+    let ports = [...ev.ports];
+    let argumentList: any[] = [];
+    for (let argument of (ev.data.argumentList || [])) {
+      argumentList.push(fromWireValue([argument.value, ports.splice(0, argument.portCount)]));
+    }
     let returnValue;
     try {
       const parent = path.slice(0, -1).reduce((obj, prop) => obj[prop], obj);
@@ -449,9 +454,9 @@ function myFlat<T>(arr: (T | T[])[]): T[] {
   return Array.prototype.concat.apply([], arr);
 }
 
-function processArguments(argumentList: any[]): [WireValue[], Transferable[]] {
+function processArguments(argumentList: any[]): [Argument[], Transferable[]] {
   const processed = argumentList.map(toWireValue);
-  return [processed.map((v) => v[0]), myFlat(processed.map((v) => v[1]))];
+  return [processed.map((v) => ({ value: v[0], portCount: v[1].length })), myFlat(processed.map((v) => v[1]))];
 }
 
 const transferCache = new WeakMap<any, Transferable[]>();
@@ -487,10 +492,10 @@ function toWireValue(value: any): [WireValue, Transferable[]] {
   ];
 }
 
-function fromWireValue(value: WireValue): any {
+function fromWireValue([value, ports]: [WireValue, MessagePort[]]): any {
   switch (value.type) {
     case WireValueType.HANDLER:
-      return transferHandlers.get(value.name)!.deserialize(value.value);
+      return transferHandlers.get(value.name)!.deserialize(value.value, ports);
     case WireValueType.RAW:
       return value.value;
   }
@@ -500,15 +505,22 @@ function requestResponseMessage(
   ep: MessagePort,
   msg: Message,
   transfers: Transferable[] = []
-): Promise<WireValue> {
+): Promise<[WireValue, MessagePort[]]> {
   return new Promise((resolve) => {
     const id = generateUUID();
     ep.addEventListener("message", function l(ev: MessageEvent) {
+      try {
+        if (!ev.data || !ev.data.id || ev.data.id !== id) {
+          return;
+        }
+        ep.removeEventListener("message", l as any);
+        resolve([ev.data, [...ev.ports]]);
+      } catch (e) {
+        console.log(e);
+      }
       if (!ev.data || !ev.data.id || ev.data.id !== id) {
         return;
       }
-      ep.removeEventListener("message", l as any);
-      resolve(ev.data);
     } as any);
     if (ep.start) {
       ep.start();
