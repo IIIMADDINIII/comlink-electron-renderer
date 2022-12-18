@@ -3,7 +3,7 @@ import {
   Message,
   MessageType,
   WireValue,
-  WireValueType,
+  WireValueType
 } from "./protocol";
 
 export const proxyMarker = Symbol("Comlink.proxy");
@@ -183,7 +183,7 @@ export interface TransferHandler<T, S> {
    * value that can be sent in a message, consisting of structured-cloneable
    * values and/or transferrable objects.
    */
-  serialize(value: T): [S, Transferable[]];
+  serialize(value: T): [S, MessagePort[]];
 
   /**
    * Gets called to deserialize an incoming value that was serialized in the
@@ -196,15 +196,17 @@ export interface TransferHandler<T, S> {
 /**
  * Internal transfer handle to handle objects marked to proxy.
  */
-const proxyTransferHandler: TransferHandler<object, MessagePort> = {
+const proxyTransferHandler: TransferHandler<object, 0> = {
   canHandle: (val): val is ProxyMarked =>
     isObject(val) && (val as ProxyMarked)[proxyMarker],
   serialize(obj) {
     const { port1, port2 } = new MessageChannel();
     expose(obj, port1);
-    return [port2, [port2]];
+    return [0, [port2]];
   },
-  deserialize(port) {
+  deserialize(_value, ports) {
+    let port = ports[0];
+    if (!port) throw new Error("Did not receive a MessagePort!");
     port.start();
     return wrap(port);
   },
@@ -293,7 +295,7 @@ export function expose(obj: any, ep: MessagePort = self as any) {
           {
             let field = path.at(-1);
             if (field === undefined) throw new Error("Only assignment of properties is allowed!");
-            parent[field] = fromWireValue(ev.data.value);
+            parent[field] = fromWireValue([ev.data.value, ports]);
             returnValue = true;
           }
           break;
@@ -345,8 +347,10 @@ export function expose(obj: any, ep: MessagePort = self as any) {
   }
 }
 
-function isMessagePort(endpoint: unknown): endpoint is MessagePort {
-  return typeof endpoint === "object" && endpoint !== null && endpoint.constructor.name === "MessagePort";
+export const MessagePortCtor = new MessageChannel().port1.constructor;
+
+export function isMessagePort(endpoint: unknown): endpoint is MessagePort {
+  return endpoint instanceof MessagePortCtor;
 }
 
 function closeEndPoint(endpoint: MessagePort) {
@@ -454,13 +458,13 @@ function myFlat<T>(arr: (T | T[])[]): T[] {
   return Array.prototype.concat.apply([], arr);
 }
 
-function processArguments(argumentList: any[]): [Argument[], Transferable[]] {
+function processArguments(argumentList: any[]): [Argument[], MessagePort[]] {
   const processed = argumentList.map(toWireValue);
   return [processed.map((v) => ({ value: v[0], portCount: v[1].length })), myFlat(processed.map((v) => v[1]))];
 }
 
-const transferCache = new WeakMap<any, Transferable[]>();
-export function transfer<T>(obj: T, transfers: Transferable[]): T {
+const transferCache = new WeakMap<any, MessagePort[]>();
+export function transfer<T>(obj: T, transfers: MessagePort[]): T {
   transferCache.set(obj, transfers);
   return obj;
 }
@@ -469,7 +473,7 @@ export function proxy<T extends {}>(obj: T): T & ProxyMarked {
   return Object.assign(obj, { [proxyMarker]: true }) as any;
 }
 
-function toWireValue(value: any): [WireValue, Transferable[]] {
+function toWireValue(value: any): [WireValue, MessagePort[]] {
   for (const [name, handler] of transferHandlers) {
     if (handler.canHandle(value)) {
       const [serializedValue, transferables] = handler.serialize(value);
@@ -504,7 +508,7 @@ function fromWireValue([value, ports]: [WireValue, MessagePort[]]): any {
 function requestResponseMessage(
   ep: MessagePort,
   msg: Message,
-  transfers: Transferable[] = []
+  transfers: MessagePort[] = []
 ): Promise<[WireValue, MessagePort[]]> {
   return new Promise((resolve) => {
     const id = generateUUID();

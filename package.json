@@ -20,7 +20,8 @@
   },
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "pnpm install && rollup --config rollup.config.ts --configPlugin typescript"
+    "clean": "pnpx rimraf ./.rollup.cache/ ./dist/ ./node_modules/ ./tsconfig.tsbuildinfo",
+    "build": "pnpm install && rollup --config rollup.config.mjs"
   },
   "repository": {
     "type": "git",

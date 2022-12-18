@@ -10,5 +10,11 @@
 				"isDefault": true
 			}
 		},
+		{
+			"label": "clean",
+			"type": "shell",
+			"command": "pnpm clean",
+			"problemMatcher": []
+		}
 	]
 }
