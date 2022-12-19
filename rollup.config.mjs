@@ -20,11 +20,14 @@ const exportsKeys =
     // omit exports with only an types filed
     .filter(([key, value]) => (Object.keys(value).length > 1 || value.types === undefined))
     .map(([key, value]) => key);
+// Dev Dependencies to error on
+const devDependenciesList = Object.keys(packageJson.devDependencies || {});
 // compiler switches
 const production = process.env.prod === "true";
 const development = !production;
 // which type of sourcemaps should be created
 const sourcemap = production ? false : packageRollup.inlineSourceMaps ? "inline" : true;
+
 
 // list of all the plugins to use
 let plugins = [
@@ -34,13 +37,14 @@ let plugins = [
   typescript({ noEmitOnError: true, outputToFilesystem: true }),
   sourceMaps(),
   nodeResolve(),
-  ...(production ? [terser()] : []),
 ];
+if (production) {
+  if (devDependenciesList.includes("rollup-plugin-html-literals")) plugins.push((await import("rollup-plugin-html-literals")).default());
+  plugins.push(terser({ format: { comments: false } }));
+}
 
 // export all exports defined in package.json exports
 export default exportsKeys.map(mapExports);
-
-
 
 // calculate the config for the export
 function mapExports(name) {
@@ -74,8 +78,6 @@ function manageDependencies(options) {
   // Calculate external packages
   const dependenciesList = Object.keys(packageJson.dependencies || {});
   const externalPackages = [...packageRollup.externalPackages, ...packageRollup.packageDependencies ? [] : dependenciesList];
-  // Dev Dependencies to error on
-  const devDependenciesList = Object.keys(packageJson.devDependencies || {});
 
   // returns true, if the import String is part of a Package
   function matchesPackage(imported, packages) {

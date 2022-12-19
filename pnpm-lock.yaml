@@ -17,6 +17,9 @@ specifiers:
   tslib: ^2.4.1
   typescript: ^4.9.4
 
+dependencies:
+  tslib: 2.4.1
+
 devDependencies:
   '@rollup/plugin-commonjs': 23.0.7_rollup@3.7.5
   '@rollup/plugin-node-resolve': 15.0.1_rollup@3.7.5
@@ -26,7 +29,6 @@ devDependencies:
   rollup: 3.7.5
   rollup-plugin-consts: 1.1.0_rollup@3.7.5
   rollup-plugin-include-sourcemaps: 0.7.0_rollup@3.7.5
-  tslib: 2.4.1
   typescript: 4.9.4
 
 packages:
@@ -382,7 +384,6 @@ packages:
 
   /tslib/2.4.1:
     resolution: {integrity: sha512-tGyy4dAjRIEwI7BzsB0lynWgOpfqjUdq91XXAlIWD2OwKBH7oCl/GZG/HT4BOHrTlPMOASlMQ7veyTqpmRcrNA==}
-    dev: true
 
   /typescript/4.9.4:
     resolution: {integrity: sha512-Uz+dTXYzxXXbsFpM86Wh3dKCxrQqUcVMxwU54orwlJjOpO3ao8L7j5lH+dWfTwgCwIuM9GQ2kvVotzYJMXTBZg==}
