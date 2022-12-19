@@ -13,16 +13,18 @@ import { access } from "fs/promises";
 const packagePath = normalizePath(new URL("./package.json", import.meta.url).toString().slice(process.platform == "win32" ? 8 : 7));
 const packageJson = JSON.parse(readFileSync(packagePath, { encoding: "utf-8" }));
 // Options for packaging
-const packageRollup = { packageDependencies: false, externalPackages: [], ...(packageJson.rollup || {}) };
+const packageRollup = { packageDependencies: false, externalPackages: [], inlineSourceMaps: false, ...(packageJson.rollup || {}) };
 const packageType = packageJson.type;
 const exportsKeys =
-  Object.entries(packageJson.exports || { ".": "" })
+  Object.entries(packageJson.exports || { ".": { default: "" } })
     // omit exports with only an types filed
-    .filter(([key, value]) => Object.keys(value).length > 1 || typeof value.types === undefined)
+    .filter(([key, value]) => (Object.keys(value).length > 1 || value.types === undefined))
     .map(([key, value]) => key);
 // compiler switches
 const production = process.env.prod === "true";
 const development = !production;
+// which type of sourcemaps should be created
+const sourcemap = production ? false : packageRollup.inlineSourceMaps ? "inline" : true;
 
 // list of all the plugins to use
 let plugins = [
@@ -38,6 +40,8 @@ let plugins = [
 // export all exports defined in package.json exports
 export default exportsKeys.map(mapExports);
 
+
+
 // calculate the config for the export
 function mapExports(name) {
   // transform exports name
@@ -46,15 +50,15 @@ function mapExports(name) {
   let output = [];
   // export commonjs when module is not module
   if (packageType !== "module") output.push({
-    file: `./dist/${name}.cjs`,
+    file: `./dist/${name}.${packageType !== "commonjs" ? "c" : ""}js`,
     format: "commonjs",
-    sourcemap: true,
+    sourcemap,
   });
   // export esm when module is not commonjs
-  if (packageType !== "module") output.push({
-    file: `./dist/${name}.mjs`,
+  if (packageType !== "commonjs") output.push({
+    file: `./dist/${name}.${packageType !== "module" ? "m" : ""}js`,
     format: "esm",
-    sourcemap: true,
+    sourcemap,
   });
   // Config for export
   return {
@@ -106,7 +110,7 @@ function manageDependencies(options) {
     async resolveId(imported, importer, options) {
       if (importer === undefined) return null;
       if (/\0/.test(imported)) return null;
-      if (await findPackage(normalizePath(importer)) !== packagePath) return null;
+      if (await findPackage(normalizePath(importer)) !== packagePath) return matchesPackage(imported, externalPackages) ? false : null;
       if (matchesPackage(imported, devDependenciesList)) throw new ManageDependencies(`Dependency ${imported} is a devDependency and is not allowed to be imported (${importer})`);
       if (matchesPackage(imported, externalPackages)) return false;
       return null;
