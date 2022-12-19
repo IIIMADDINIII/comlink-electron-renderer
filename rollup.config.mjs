@@ -10,7 +10,8 @@ import { readFileSync } from "fs";
 import { access } from "fs/promises";
 
 // Load Package.json
-const packagePath = normalizePath(new URL("./package.json", import.meta.url).toString().slice(process.platform == "win32" ? 8 : 7));
+console.log(decodeURI(new URL("./package.json", import.meta.url).toString()));
+const packagePath = normalizePath(decodeURI(new URL("./package.json", import.meta.url).toString()).slice(process.platform == "win32" ? 8 : 7));
 const packageJson = JSON.parse(readFileSync(packagePath, { encoding: "utf-8" }));
 // Options for packaging
 const packageRollup = { packageDependencies: false, externalPackages: [], inlineSourceMaps: false, ...(packageJson.rollup || {}) };
