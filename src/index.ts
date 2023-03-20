@@ -275,7 +275,10 @@ export function expose(obj: unknown, ep: MessagePort) {
     if (!ev || !ev.data) {
       return;
     }
-    const { id, type, path } = ev.data as Message;
+    const { id, type, path } = {
+      path: [] as string[],
+      ...(ev.data as Message),
+    };
     let ports = [...ev.ports];
     let argumentList: unknown[] = [];
     for (let argument of (ev.data.argumentList || [])) {
@@ -368,6 +371,34 @@ function throwIfProxyReleased(isReleased: boolean) {
   }
 }
 
+// Global Variables for automatically closing Endpoints
+const finReg = new FinalizationRegistry(finalize);
+const finRegCount: Map<MessagePort, { value: number; }> = new Map();
+
+// is called each time a Proxy is Garbage Collected
+function finalize(ep: MessagePort) {
+  let count = finRegCount.get(ep);
+  if (count === undefined) return;
+  count.value--;
+  if (count.value > 0) return;
+  finRegCount.delete(ep);
+  requestResponseMessage(ep, { type: MessageType.RELEASE }).catch(console.error);
+  setTimeout(() => {
+    ep.close();
+  }, 100);
+}
+
+// create and increment Reference counter and register Garbage collection Callback
+function registerProxy(proxy: object, ep: MessagePort): void {
+  let count = finRegCount.get(ep);
+  if (count === undefined) {
+    count = { value: 0 };
+    finRegCount.set(ep, count);
+  }
+  count.value++;
+  finReg.register(proxy, ep);
+}
+
 function createProxy<T>(
   ep: MessagePort,
   path: (string | number | symbol)[] = [],
@@ -381,7 +412,6 @@ function createProxy<T>(
         return () => {
           return requestResponseMessage(ep, {
             type: MessageType.RELEASE,
-            path: path.map((p) => p.toString()),
           }).then(() => {
             ep.close();
             isProxyReleased = true;
@@ -402,8 +432,6 @@ function createProxy<T>(
     },
     set(_target, prop, rawValue) {
       throwIfProxyReleased(isProxyReleased);
-      // FIXME: ES6 Proxy Handler `set` methods are supposed to return a
-      // boolean. To show good will, we return true asynchronously ¯\_(ツ)_/¯
       const [value, transferables] = toWireValue(rawValue);
       requestResponseMessage(
         ep,
@@ -449,6 +477,7 @@ function createProxy<T>(
       ).then(fromWireValue);
     },
   });
+  registerProxy(proxy, ep);
   return <Remote<T>>proxy;
 }
 
@@ -512,9 +541,7 @@ function requestResponseMessage(
         return;
       }
     });
-    if (ep.start) {
-      ep.start();
-    }
+    ep.start();
     ep.postMessage({ id, ...msg }, transfers);
   });
 }

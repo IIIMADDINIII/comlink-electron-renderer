@@ -70,7 +70,6 @@ export interface ConstructMessage {
 export interface ReleaseMessage {
   id?: MessageID;
   type: MessageType.RELEASE;
-  path: string[];
 }
 
 export type Message =
