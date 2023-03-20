@@ -13,7 +13,7 @@ import { access } from "fs/promises";
 const packagePath = normalizePath(decodeURI(new URL("./package.json", import.meta.url).toString()).slice(process.platform == "win32" ? 8 : 7));
 const packageJson = JSON.parse(readFileSync(packagePath, { encoding: "utf-8" }));
 // Options for packaging
-const packageRollup = { packageDependencies: false, externalPackages: [], inlineSourceMaps: false, ...(packageJson.rollup || {}) };
+const packageRollup = { doNotGenerateDeclarationInProduction: false, packageDependencies: false, externalPackages: [], inlineSourceMaps: false, ...(packageJson.rollup || {}) };
 const packageType = packageJson.type;
 const exportsKeys =
   Object.entries(packageJson.exports || { ".": { default: "" } })
@@ -23,18 +23,18 @@ const exportsKeys =
 // Dev Dependencies to error on
 const devDependenciesList = Object.keys(packageJson.devDependencies || {});
 // compiler switches
-const production = process.env.prod === "true";
+const production = process.env.prod?.trim() === "true";
 const development = !production;
 // which type of sourcemaps should be created
 const sourcemap = production ? false : packageRollup.inlineSourceMaps ? "inline" : true;
-
+const generateDeclaration = !(production && packageRollup.doNotGenerateDeclarationInProduction);
 
 // list of all the plugins to use
 let plugins = [
   manageDependencies(),
   consts({ production, development }),
   commonjs(),
-  typescript({ noEmitOnError: true, outputToFilesystem: true }),
+  typescript({ noEmitOnError: true, outputToFilesystem: true, declaration: generateDeclaration, declarationMap: generateDeclaration }),
   sourceMaps(),
   nodeResolve(),
 ];

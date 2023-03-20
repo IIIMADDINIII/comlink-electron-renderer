@@ -1,0 +1,38 @@
+diff --git a/dist/cjs/index.js b/dist/cjs/index.js
+index ae76615fe7091c721fcee0ebc8a6dad2fa66fd32..d89178949c8ace3a9575812ad1a426cd5d5cf34d 100644
+--- a/dist/cjs/index.js
++++ b/dist/cjs/index.js
+@@ -297,11 +297,12 @@ function containsEnumOptions(compilerOptions) {
+  */
+ function setModuleResolutionKind(parsedConfig) {
+     const moduleKind = parsedConfig.options.module;
+-    const moduleResolution = moduleKind === ModuleKind$1.Node16
++    const moduleResolution = parsedConfig.options.moduleResolution || 
++        (moduleKind === ModuleKind$1.Node16
+         ? ModuleResolutionKind.Node16
+         : moduleKind === ModuleKind$1.NodeNext
+             ? ModuleResolutionKind.NodeNext
+-            : ModuleResolutionKind.NodeJs;
++            : ModuleResolutionKind.NodeJs);
+     return {
+         ...parsedConfig,
+         options: {
+diff --git a/dist/es/index.js b/dist/es/index.js
+index 30c5266740a9feb7aceff96b139f04937537598a..3300433c5eb96a45560aa664112754faa2dcfa7d 100644
+--- a/dist/es/index.js
++++ b/dist/es/index.js
+@@ -275,11 +275,12 @@ function containsEnumOptions(compilerOptions) {
+  */
+ function setModuleResolutionKind(parsedConfig) {
+     const moduleKind = parsedConfig.options.module;
+-    const moduleResolution = moduleKind === ModuleKind$1.Node16
++    const moduleResolution = parsedConfig.options.moduleResolution || 
++        (moduleKind === ModuleKind$1.Node16
+         ? ModuleResolutionKind.Node16
+         : moduleKind === ModuleKind$1.NodeNext
+             ? ModuleResolutionKind.NodeNext
+-            : ModuleResolutionKind.NodeJs;
++            : ModuleResolutionKind.NodeJs);
+     return {
+         ...parsedConfig,
+         options: {
