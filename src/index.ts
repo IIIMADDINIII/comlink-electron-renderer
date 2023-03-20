@@ -2,6 +2,7 @@ import {
   Argument,
   Message,
   MessageType,
+  Sendable,
   WireValue,
   WireValueType
 } from "./protocol";
@@ -11,14 +12,16 @@ export const createEndpoint = Symbol("Comlink.endpoint");
 export const releaseProxy = Symbol("Comlink.releaseProxy");
 
 const throwMarker = Symbol("Comlink.thrown");
+type UnknownObject = { [key: string | symbol | number]: unknown; };
+type Constructor = new (...args: unknown[]) => UnknownObject;
 
 /**
  * Interface of values that were marked to be proxied with `comlink.proxy()`.
  * Can also be implemented by classes.
  */
-export interface ProxyMarked {
+export type ProxyMarked = {
   [proxyMarker]: true;
-}
+};
 
 /**
  * Takes a type and wraps it in a Promise, if it not already is one.
@@ -267,24 +270,32 @@ export const transferHandlers = new Map<
   ["throw", throwTransferHandler],
 ]);
 
-export function expose(obj: any, ep: MessagePort = self as any) {
+export function expose(obj: unknown, ep: MessagePort) {
   ep.addEventListener("message", function callback(ev: MessageEvent) {
     if (!ev || !ev.data) {
       return;
     }
-    const { id, type, path } = {
-      path: [] as string[],
-      ...(ev.data as Message),
-    };
+    const { id, type, path } = ev.data as Message;
     let ports = [...ev.ports];
-    let argumentList: any[] = [];
+    let argumentList: unknown[] = [];
     for (let argument of (ev.data.argumentList || [])) {
       argumentList.push(fromWireValue([argument.value, ports.splice(0, argument.portCount)]));
     }
     let returnValue;
     try {
-      const parent = path.slice(0, -1).reduce((obj, prop) => obj[prop], obj);
-      const rawValue = path.reduce((obj, prop) => obj[prop], obj);
+      let parentPath = path.slice(0, -1);
+      const parent = parentPath.reduce((obj, prop) => {
+        if (typeof obj === "object" && obj !== null) {
+          return (<{ [key: string | number | symbol]: unknown; }>obj)[prop];
+        }
+        return undefined;
+      }, obj);
+      const rawValue = path.reduce((obj, prop) => {
+        if (typeof obj === "object" && obj !== null) {
+          return (<UnknownObject>obj)[prop];
+        }
+        return undefined;
+      }, obj);
       switch (type) {
         case MessageType.GET:
           {
@@ -295,26 +306,22 @@ export function expose(obj: any, ep: MessagePort = self as any) {
           {
             let field = path.at(-1);
             if (field === undefined) throw new Error("Only assignment of properties is allowed!");
-            parent[field] = fromWireValue([ev.data.value, ports]);
+            if (typeof parent !== "object" && parent === null) throw new Error("Only assignment to Objects (!== null) are allowed!");
+            (<UnknownObject>parent)[field] = fromWireValue([ev.data.value, ports]);
             returnValue = true;
           }
           break;
         case MessageType.APPLY:
           {
+            if (typeof rawValue !== "function") throw new Error("Only calls to functions are allowed!");
             returnValue = rawValue.apply(parent, argumentList);
           }
           break;
         case MessageType.CONSTRUCT:
           {
-            const value = new rawValue(...argumentList);
+            if (typeof rawValue !== "function") throw new Error("Only calls to functions are allowed!");
+            const value = new (<Constructor>rawValue)(...argumentList);
             returnValue = proxy(value);
-          }
-          break;
-        case MessageType.ENDPOINT:
-          {
-            const { port1, port2 } = new MessageChannel();
-            expose(obj, port2);
-            returnValue = transfer(port1, [port1]);
           }
           break;
         case MessageType.RELEASE:
@@ -337,14 +344,12 @@ export function expose(obj: any, ep: MessagePort = self as any) {
         ep.postMessage({ ...wireValue, id }, transferables);
         if (type === MessageType.RELEASE) {
           // detach and deactive after sending release response above.
-          ep.removeEventListener("message", callback as any);
-          closeEndPoint(ep);
+          ep.removeEventListener("message", callback);
+          ep.close();
         }
       });
-  } as any);
-  if (ep.start) {
-    ep.start();
-  }
+  });
+  ep.start();
 }
 
 export const MessagePortCtor = new MessageChannel().port1.constructor;
@@ -353,12 +358,8 @@ export function isMessagePort(endpoint: unknown): endpoint is MessagePort {
   return endpoint instanceof MessagePortCtor;
 }
 
-function closeEndPoint(endpoint: MessagePort) {
-  if (isMessagePort(endpoint)) endpoint.close();
-}
-
-export function wrap<T>(ep: MessagePort, target?: any): Remote<T> {
-  return createProxy<T>(ep, [], target) as any;
+export function wrap<T>(ep: MessagePort): Remote<T> {
+  return createProxy<T>(ep, []);
 }
 
 function throwIfProxyReleased(isReleased: boolean) {
@@ -382,7 +383,7 @@ function createProxy<T>(
             type: MessageType.RELEASE,
             path: path.map((p) => p.toString()),
           }).then(() => {
-            closeEndPoint(ep);
+            ep.close();
             isProxyReleased = true;
           });
         };
@@ -404,7 +405,7 @@ function createProxy<T>(
       // FIXME: ES6 Proxy Handler `set` methods are supposed to return a
       // boolean. To show good will, we return true asynchronously ¯\_(ツ)_/¯
       const [value, transferables] = toWireValue(rawValue);
-      return requestResponseMessage(
+      requestResponseMessage(
         ep,
         {
           type: MessageType.SET,
@@ -412,16 +413,13 @@ function createProxy<T>(
           value,
         },
         transferables
-      ).then(fromWireValue) as any;
+      ).then(fromWireValue);
+      // ToDo: Set can not be implemented as a assignment reliably, so create an alternative set Method
+      return true;
     },
     apply(_target, _thisArg, rawArgumentList) {
       throwIfProxyReleased(isProxyReleased);
       const last = path[path.length - 1];
-      if ((last as any) === createEndpoint) {
-        return requestResponseMessage(ep, {
-          type: MessageType.ENDPOINT,
-        }).then(fromWireValue);
-      }
       // We just pretend that `bind()` didn’t happen.
       if (last === "bind") {
         return createProxy(ep, path.slice(0, -1));
@@ -451,29 +449,23 @@ function createProxy<T>(
       ).then(fromWireValue);
     },
   });
-  return proxy as any;
+  return <Remote<T>>proxy;
 }
 
 function myFlat<T>(arr: (T | T[])[]): T[] {
   return Array.prototype.concat.apply([], arr);
 }
 
-function processArguments(argumentList: any[]): [Argument[], MessagePort[]] {
+function processArguments(argumentList: unknown[]): [Argument[], MessagePort[]] {
   const processed = argumentList.map(toWireValue);
   return [processed.map((v) => ({ value: v[0], portCount: v[1].length })), myFlat(processed.map((v) => v[1]))];
 }
 
-const transferCache = new WeakMap<any, MessagePort[]>();
-export function transfer<T>(obj: T, transfers: MessagePort[]): T {
-  transferCache.set(obj, transfers);
-  return obj;
-}
-
 export function proxy<T extends {}>(obj: T): T & ProxyMarked {
-  return Object.assign(obj, { [proxyMarker]: true }) as any;
+  return Object.assign(obj, { [proxyMarker]: true } as const);
 }
 
-function toWireValue(value: any): [WireValue, MessagePort[]] {
+function toWireValue(value: unknown): [WireValue, MessagePort[]] {
   for (const [name, handler] of transferHandlers) {
     if (handler.canHandle(value)) {
       const [serializedValue, transferables] = handler.serialize(value);
@@ -487,16 +479,10 @@ function toWireValue(value: any): [WireValue, MessagePort[]] {
       ];
     }
   }
-  return [
-    {
-      type: WireValueType.RAW,
-      value,
-    },
-    transferCache.get(value) || [],
-  ];
+  return [{ type: WireValueType.RAW, value: <Sendable>value }, []];
 }
 
-function fromWireValue([value, ports]: [WireValue, MessagePort[]]): any {
+function fromWireValue([value, ports]: [WireValue, MessagePort[]]): unknown {
   switch (value.type) {
     case WireValueType.HANDLER:
       return transferHandlers.get(value.name)!.deserialize(value.value, ports);
@@ -517,7 +503,7 @@ function requestResponseMessage(
         if (!ev.data || !ev.data.id || ev.data.id !== id) {
           return;
         }
-        ep.removeEventListener("message", l as any);
+        ep.removeEventListener("message", l);
         resolve([ev.data, [...ev.ports]]);
       } catch (e) {
         console.log(e);
@@ -525,7 +511,7 @@ function requestResponseMessage(
       if (!ev.data || !ev.data.id || ev.data.id !== id) {
         return;
       }
-    } as any);
+    });
     if (ep.start) {
       ep.start();
     }

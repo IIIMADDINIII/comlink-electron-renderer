@@ -1,5 +1,8 @@
 
 
+export type Sendable = boolean | Date | RegExp | string | undefined | number | BigInt | Sendable[] | Set<Sendable> | Map<Sendable, Sendable> | ArrayBuffer | DataView | Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | { [key: string]: Sendable; };
+
+
 export const enum WireValueType {
   RAW = "RAW",
   PROXY = "PROXY",
@@ -10,7 +13,7 @@ export const enum WireValueType {
 export interface RawWireValue {
   id?: string;
   type: WireValueType.RAW;
-  value: {};
+  value: Sendable;
 }
 
 export interface HandlerWireValue {
@@ -29,7 +32,6 @@ export const enum MessageType {
   SET = "SET",
   APPLY = "APPLY",
   CONSTRUCT = "CONSTRUCT",
-  ENDPOINT = "ENDPOINT",
   RELEASE = "RELEASE",
 }
 
@@ -65,11 +67,6 @@ export interface ConstructMessage {
   argumentList: Argument[];
 }
 
-export interface EndpointMessage {
-  id?: MessageID;
-  type: MessageType.ENDPOINT;
-}
-
 export interface ReleaseMessage {
   id?: MessageID;
   type: MessageType.RELEASE;
@@ -81,5 +78,4 @@ export type Message =
   | SetMessage
   | ApplyMessage
   | ConstructMessage
-  | EndpointMessage
   | ReleaseMessage;
